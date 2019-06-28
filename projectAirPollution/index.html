@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html >
+  <head>
+    <meta charset="UTF-8">
+    <script src="jquery-1.12.3.min.js"></script>
+    <script src="http://maps.googleapis.com/maps/api/js?key=AIzaSyDxJPEpd_CHyRXEqnCM-ZrivNIq3HyduUI&libraries=visualization">
+</script>
+
+<script>
+var items = []; 
+var station_dir = [];
+$( document ).ready(function() {
+  $.getJSON("http://www.pollution-api.gr/api/?key=e7a23905c8ff767b633bccd3b034dc56&type=stations", function( data ) {
+  
+  for (var i = 0; i < data.length; i++) 
+  {
+    station_dir[i] = data[i];
+    
+  }
+   google.maps.event.addDomListener(window, 'load', initialize);
+    });
+
+
+ 
+  });
+function getFunc()
+{ 
+  var get_query = "http://www.pollution-api.gr/api/?key=e7a23905c8ff767b633bccd3b034dc56";
+  if (document.getElementById("station1").checked)
+  {
+    var station = document.getElementById("stathmos").value;
+    get_query = get_query + "&uid=" + station;
+  }
+
+  if (document.getElementById("selection1").checked)
+  {
+    var type = "&type=absolut";
+    var date = document.getElementById("single_date").value;
+    var poll = document.getElementById("poll_type").value;
+    var time = document.getElementById("time").value;
+    get_query = get_query + "&time=" + time + "&poll=" + poll + "&date=" + date + type;
+  }
+  else
+  {
+    var type = "&type=median";
+    var date1 = document.getElementById("start_date").value;
+    var date2 = document.getElementById("end_date").value;
+    var poll = document.getElementById("poll_type").value;
+    get_query = get_query + "&poll=" + poll + "&date1=" + date1 + "&date2=" + date2 + type; 
+  }
+  $.getJSON(get_query, function( data ) {
+   items = []; 
+   for (var i = 0; i < data.length; i++) {
+    items[i] = data[i];
+  }
+    if(JSON.stringify(data) != '[]')
+    {
+      createHeatmap(items);
+      $("#floating-panel").show(); 
+    }
+    else
+    {
+      $("#warning").show("slow");
+      setTimeout(function(){
+        initialize();
+      }, 3000);
+      
+    }
+  }
+);
+}
+var map,heatmap;
+var myCenter=new google.maps.LatLng(38,23);
+
+function initialize()
+{
+  $("#warning").hide("slow");
+  var mapProp = {
+  center:myCenter,
+  zoom:7,
+  mapTypeId:google.maps.MapTypeId.ROADMAP
+  };
+
+  map = new google.maps.Map(document.getElementById("mapdiv"),mapProp);
+  if(station_dir)
+  {
+   for(var i = 0; i < station_dir.length; i++)
+     {
+      placeMarker(station_dir[i]);
+     };
+  }
+
+
+}
+
+
+function placeMarker(temp_station) {
+  var ccontent = "";
+  var final_content = "";
+    for (var property in temp_station)
+    {
+      ccontent += property + ": " + temp_station[property] + '<br>';
+    }
+  
+
+    var temp_point=new google.maps.LatLng(temp_station["coordslat"],temp_station["coordslon"]);
+    var marker = new google.maps.Marker({
+    position: temp_point,
+    map: map,
+  });
+  var infowindow = new google.maps.InfoWindow({
+    content: ccontent
+  });
+  google.maps.event.addListener(marker,'click',function() {
+  map.setZoom(12);
+  map.setCenter(marker.getPosition());
+  infowindow.open(map,marker);
+  });
+
+}
+
+function createHeatmap(stations)
+{
+  var mapProp = {
+  center:myCenter,
+  zoom:7,
+  mapTypeId:google.maps.MapTypeId.ROADMAP
+  };
+  map = new google.maps.Map(document.getElementById("mapdiv"),mapProp);
+   for(var i = 0; i < stations.length; i++)
+     {
+      placeMarker(stations[i]);
+     };
+     var intense = 100;
+     if(document.getElementById("poll_type").value != "CO")
+     {
+     	var intense = 100;
+     }
+     else
+     {
+     	var intense = 10;
+     }
+   heatmap = new google.maps.visualization.HeatmapLayer({
+          data: getPoints(stations),
+          dissipating: true,
+      map: map,
+      maxIntensity: intense,  
+      radius: 50
+        });
+  
+}
+function getPoints(stations) {
+        
+    var jsonArr = [];
+
+    for (var i = 0; i < stations.length; i++) 
+    {
+        jsonArr.push({
+            location: new google.maps.LatLng(stations[i]["coordslat"],stations[i]["coordslon"]),
+            weight: stations[i]["VALUE"]
+        });
+    }
+    
+        return jsonArr;
+}
+
+ function dissipating() {
+        heatmap.set('dissipating', heatmap.get('dissipating') ? false : true);
+      }
+    
+      function toggleHeatmap() {
+        heatmap.setMap(heatmap.getMap() ? null : map);
+      }
+
+      function changeGradient() {
+        var gradient = [
+          'rgba(0, 255, 255, 0)',
+          'rgba(0, 255, 255, 1)',
+          'rgba(0, 191, 255, 1)',
+          'rgba(0, 127, 255, 1)',
+          'rgba(0, 63, 255, 1)',
+          'rgba(0, 0, 255, 1)',
+          'rgba(0, 0, 223, 1)',
+          'rgba(0, 0, 191, 1)',
+          'rgba(0, 0, 159, 1)',
+          'rgba(0, 0, 127, 1)',
+          'rgba(63, 0, 91, 1)',
+          'rgba(127, 0, 63, 1)',
+          'rgba(191, 0, 31, 1)',
+          'rgba(255, 0, 0, 1)'
+        ]
+        heatmap.set('gradient', heatmap.get('gradient') ? null : gradient);
+      }
+
+      function changeRadius() {
+        heatmap.set('radius', (heatmap.get('radius')==150) ? 50 : 150);
+      }
+
+      function changeOpacity() {
+        heatmap.set('opacity', heatmap.get('opacity') ? null : 0.2);
+      }
+
+
+function setField(){ $("#stathmos_div").show();}
+function setField2(){ $("#stathmos_div").hide();}
+function setDate() 
+{
+  $("#spec_time_div").show();
+  $("#range").hide();
+}
+function setDate2() 
+{
+  $("#spec_time_div").hide();
+  $("#range").show();
+}
+
+
+</script>
+  </head>
+<style type="text/css">
+  .btn{
+  border: 1px solid #000000;
+  border-radius: 4px;
+    background-color: #00a3cc;
+    color: white;
+    padding: 10px;
+    font-size: 14px;
+    margin:8px;
+    cursor: pointer;
+}
+</style>
+<body style="background-image: url(air-pollution.jpg); background-repeat: no-repeat; height:auto; ">
+
+ <div id="formdiv" style="width:auto;height:auto; word-wrap: normal; align:left ">
+ <h1 style="font-family:courier; width:25%; ">Project Air Pollution</h1>
+ <select class="btn" id="poll_type" >
+    <option selected disabled>Ρύπος</option>
+    <option value="CO">CO</option>
+    <option value="O3">O3</option>
+    <option value="NO">NO</option>
+</select>
+<br>
+<div>
+<h3> Επιλογή σταθμού</h3>
+ <input type="radio" name="station" onclick="setField()" id="station1" value="one"/> Ένας σταθμός
+ <br>
+ <input type="radio" name="station" onclick="setField2()" id="station2" value="all"/> Όλοι οι σταθμοί
+ <br>
+ </div>
+ <div id="stathmos_div" style="display:none;"">
+ Κωδικός σταθμού (αν επιλέχθηκε ένας σταθμός): 
+ <br>
+ <input type="text" id="stathmos" placeholder="Κωδικός σταθμού">
+ <br>
+ </div>
+ <div>
+ <h3 style="width:25%"> Επιλογή χρονικού διαστήματος </h3>
+<input type="radio" name="select" id="selection1" onclick="setDate()" value="one"/> Συγκεκριμένη ημέρα και ώρα
+ <br>
+ <input type="radio" name="select" id="selection2" onclick="setDate2()" value="range"/> Χρονικό διάστημα
+ <br>
+ </div>
+ <div id="spec_time_div" style="display:none">
+<select id="time" style >
+    <option selected disabled>Ώρα</option>
+    <option value="0:00">00:00</option>
+    <option value="1:00">01:00</option>
+    <option value="2:00">02:00</option>
+    <option value="3:00">03:00</option>
+    <option value="4:00">04:00</option>
+    <option value="5:00">05:00</option>
+    <option value="6:00">06:00</option>
+    <option value="7:00">07:00</option>
+    <option value="8:00">08:00</option>
+    <option value="9:00">09:00</option>
+    <option value="10:00">10:00</option>
+    <option value="11:00">11:00</option>
+    <option value="12:00">12:00</option>
+    <option value="13:00">13:00</option>
+    <option value="14:00">14:00</option>
+    <option value="15:00">15:00</option>
+    <option value="16:00">16:00</option>
+    <option value="17:00">17:00</option>
+    <option value="18:00">18:00</option>
+    <option value="19:00">19:00</option>
+    <option value="20:00">20:00</option>
+    <option value="21:00">21:00</option>
+    <option value="22:00">22:00</option>
+    <option value="23:00">23:00</option>
+</select>
+<br>
+Ημερομηνία:<br>
+<input type="date" id="single_date" max="2014-12-31" min="2013-01-01"><br>
+</div>
+<div id="range" style="display:none">
+Ημερομηνία αρχής χρονικής περιόδου:<br>
+<input type="date" id="start_date" max="2014-12-31" min="2013-01-01"><br>
+Ημερομηνία τέλους χρονικής περιόδου:<br>
+<input type="date" id="end_date" min="2013-01-01" max="2014-12-31"><br>
+</div>
+<button class="btn" onclick="getFunc()">Submit</button>
+
+</div>
+<div id="mapdiv" style="position: absolute; top:0; right: 0; width:75%;height:100%;  ">
+
+</div>  
+
+<div id="floating-panel" style="z-index:5; display: none; position: absolute; top:0; right: 0; width:65%; " >
+      <button class= "btn" onclick="toggleHeatmap()">Ενεργοποίηση/Απενεργοποίηση Heatmap</button>
+      <button class= "btn" onclick="changeGradient()">Αλλαγή χρώματος</button>
+      <button class= "btn" onclick="changeRadius()">Αλλαγή ακτίνας</button>
+      <button class= "btn" onclick="changeOpacity()">Αλλαγή διαφάνειας</button>
+      <button class= "btn" onclick="dissipating()">Εξάπλωση & Συνένωση</button>
+      <button class= "btn" onclick="initialize()">Επαναφορά αρχικών σταθμών</button>
+    </div> 
+<div id="warning" style="position:absolute; bottom: 0; left: 0; background-color: red; width: 25%; height: 25%; display: none; "><p align="center" style="font-size: 18pt " >Δεν βρέθηκαν εγγραφές με αυτά τα χαρακτηριστικά!</div>
+  </body>
+</html>
